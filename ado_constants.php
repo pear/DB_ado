@@ -13,15 +13,23 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Author: Alexios Fakos (alex@fakos.de)                                |
+// | Author: Alexios Fakos (alexios@php.net)                              |
 // +----------------------------------------------------------------------+
 //
 //
 // $Id$
 //
-// Database independent query interface definition for Microsoft's ADODB
-// library using PHP's COM extension
-//
+
+
+/**
+ * Database independent query interface definition for Microsoft's ADODB
+ * library using PHP's COM extension
+ *
+ * @author   Alexios Fakos <alexios@php.net>
+ * @version  $Revision$
+ * @package  DB_ado
+ */
+
 
 //  CursorTypeEnum Values  //
     define('adOpenForwardOnly', 0);
