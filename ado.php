@@ -42,13 +42,9 @@
 
 
 
-if (ini_set("com.autoregister_typelib", 1) === false) {
-    include_once("ado_constants.php");
-}
-@ini_set("com.autoregister_verbose", 1);
+include_once(dirname(__FILE__) . '/ado_constants.php');
 
-
-require_once "DB/common.php";
+require_once ('DB/common.php');
 
 class DB_ado extends DB_common
 {
@@ -97,10 +93,10 @@ class DB_ado extends DB_common
     /**
      * Result of affected rows
      * 
-     * @var     integer default 0
+     * @var     variant
      * @see     affectedRows(), simpleQuery()
      */        
-    var $affected = 0;
+    var $affected;
 
     /**
      * Points on ADODB.Recordset
@@ -109,15 +105,6 @@ class DB_ado extends DB_common
      * @see     simpleQuery(), disconnect()
      */    
     var $recordset;
-
-
-     /**
-     * Points on ADODB.Stream
-     * 
-     * @var     object ADODB.Stream (COM)
-     * @see     fetchInto(), disconnect()
-     */    
-    var $stream;
 
 
     /**
@@ -207,7 +194,8 @@ class DB_ado extends DB_common
              2147749392  => DB_ERROR_NOSUCHFIELD,
             -2147217857  => DB_ERROR_ALREADY_EXISTS,
             -2147217843  => DB_ERROR_CONNECT_FAILED
-        );    
+        );
+        $this->affected = new VARIANT();
     }
 
     
@@ -241,7 +229,7 @@ class DB_ado extends DB_common
     {
         if (!OS_WINDOWS) {
             return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND, null, 
-                        null, null, "This class runs only on Windows OS");
+                        null, null, 'This class runs only on Windows OS');
         }
 
         $this->dsn = $dsninfo;
@@ -253,18 +241,18 @@ class DB_ado extends DB_common
         $this->connection = new COM("ADODB.Connection");
 
         if (!$this->connection) {
-           $errMsg  = "Could not create an instance of ADODB.Connection.\n";
-           $errMsg .= "Check if you have installed MDAC on your machine.\n";
-           $errMsg .= "Take a look at "; 
-           $errMsg .= "http://www.microsoft.com/data/download.htm";
+           $errMsg  = 'Could not create an instance of ADODB.Connection.\n';
+           $errMsg .= 'Check if you have installed MDAC on your machine.\n';
+           $errMsg .= 'Take a look at '; 
+           $errMsg .= 'http://www.microsoft.com/data/download.htm';
 
            return $this->raiseError(DB_ERROR_CONNECT_FAILED, null, 
                                     null, null, $errMsg);
         }
 
         //check some valid link properties    
-        $link  = "PROVIDER=|DRIVER=|DATA+SOURCE=|PERSIST+SECURITY+INFO=|UID=|";
-        $link .= "USER+ID=|PASSWORD=|PWD=|INITIAL+CATALOG=";
+        $link  = 'PROVIDER=|DRIVER=|DATA+SOURCE=|PERSIST+SECURITY+INFO=|UID=|';
+        $link .= 'USER+ID=|PASSWORD=|PWD=|INITIAL+CATALOG=';
   
         if (!empty($connstr) && preg_match('/\b\s*('.$link.')\b/i', $connstr)) {
             @$this->connection->Open($connstr, $user, $pw);
@@ -300,7 +288,6 @@ class DB_ado extends DB_common
             @$this->connection->Close();                
         }
         
-        $this->stream = null;
         $this->recordset = null;            
         $this->connection = null;            
         
@@ -337,30 +324,29 @@ class DB_ado extends DB_common
         
         if ($ismanip) {
             
-            $rs = @$this->connection->Execute($query, &$this->affected, 
-                                                $this->_execute_option);
+            $this->recordset = @$this->connection->Execute($query, 
+                                                           &$this->affected, 
+                                                           $this->_execute_option);
 
         } else {
 
-            $rs =& $this->recordset;
-
-            if (!is_object($rs)) {
-                $rs = new COM("ADODB.Recordset");
-                if (!$rs) {
-                    $errMsg  = "Creating an instance of ADODB.Recordset";
-                    $errMsg .= "failed!";
+            if (!is_object($this->recordset)) {
+                $this->recordset = new COM('ADODB.Recordset');
+                if (!$this->recordset) {
+                    $errMsg  = 'Creating an instance of ADODB.Recordset ';
+                    $errMsg .= 'failed!';
                     return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND, 
                                                null, null, null, $errMsg);            
                 }
             } else {
                 //  close other open recordset to open a new one
-                if ($rs->State != adStateClosed) {  
-                    @$rs->Close();  
+                if ($this->recordset->State != adStateClosed) {  
+                    @$this->recordset->Close();  
                 }
             }
 
-            $rs->MaxRecords = $this->_max_records;
-            @$rs->Open ($query, $this->connection, $this->_cursor_type, 
+            $this->recordset->MaxRecords = $this->_max_records;
+            @$this->recordset->Open ($query, $this->connection, $this->_cursor_type, 
                              $this->_lock_type, $this->_execute_option);            
         }
 
@@ -368,7 +354,7 @@ class DB_ado extends DB_common
             return $this->adoRaiseErrorEx($this->errorNative());
         }
         
-        return $rs;
+        return $this->recordset;
     }
 
 
@@ -380,7 +366,7 @@ class DB_ado extends DB_common
      * @access     public
      * @return     void
      */
-    function nextResult(&$result)
+    function nextResult($result)
     {
         if (!@$result->EOF()) {
             @$result->MoveNext();            
@@ -452,6 +438,16 @@ class DB_ado extends DB_common
                     if ($fvalue > 0) {
                         $value = date('Y-m-d H:i:s', (integer) $fvalue);                          
                     }
+                } elseif ($this->isTypeOfBinary($type)) {
+                    if (is_array($fvalue)) {
+                        $value = ''; 
+                        foreach ($fvalue as $value) {
+                            $value .= pack('C', $value);
+                        } 
+                        $fvalue = null;
+                    } else {
+                        $value = $fvalue;                        
+                    }
                 } else {
                     $value = $fvalue;
                 }
@@ -521,7 +517,7 @@ class DB_ado extends DB_common
      */
     function affectedRows()
     {
-        return $this->affected;
+        return $this->affected->value;
     }
 
 
@@ -613,7 +609,7 @@ class DB_ado extends DB_common
             @$result->Close();
         }
 
-        $this->affected = 0;
+        $this->affected->value = 0;
         $this->transaction_opcount = 0;
         
         return true;
@@ -647,7 +643,7 @@ class DB_ado extends DB_common
     */
     function adoTrans()
     {
-        $ret = $this->connection->Properties("Transaction DDL");
+        $ret = $this->connection->Properties('Transaction DDL');
         
         if (!$ret) {
             return false;
@@ -730,7 +726,7 @@ class DB_ado extends DB_common
         }
         
         $count = $errors->Count();        
-        $ret = "";
+        $ret = '';
         for($i = 0; $i < $count; $i++) {
             $item = $errors->Item($i);
 
@@ -986,13 +982,13 @@ class DB_ado extends DB_common
      */
     function _helpCreateSequence()
     {
-        $dbsyntax = $this->dbsyntax;
+        $dbsyntax = strtolower($this->dbsyntax);
 
-        if ($dbsyntax == "access") {
-            $ftype = "(id LONG NOT NULL, PRIMARY KEY(id))";
+        if ($dbsyntax == 'access') {
+            $ftype = '(id LONG NOT NULL, PRIMARY KEY(id))';
         } else {
             // odbc compliant
-            $ftype = "(id BIGINT NOT NULL, PRIMARY KEY(id))";
+            $ftype = '(id BIGINT NOT NULL, PRIMARY KEY(id))';
         }
 
         return $ftype;
@@ -1010,7 +1006,7 @@ class DB_ado extends DB_common
     function _tableExists($value)
     {
         $ok = false;
-        $cat = new COM("ADOX.Catalog");
+        $cat = new COM('ADOX.Catalog');
 
         if ($cat) {
 
@@ -1026,7 +1022,7 @@ class DB_ado extends DB_common
             
             for($i = 0; $i < $count; $i++) {
                 $table = $tables->Item($i);
-                if (strtolower($table->Type) != "view" &&
+                if (strtolower($table->Type) != 'view' &&
                         strtolower($table->Name) == $value) {
                     $ok = true;
                     break;
@@ -1062,11 +1058,11 @@ class DB_ado extends DB_common
             // or @$result->Source
             if (empty($table_name)) {
                 return $this->raiseError(DB_ERROR_INVALID, null, null,
-                        null, "Empty table name in tableInfo() __LINE__");
+                        null, 'Empty table name in tableInfo() ' . __LINE__);
             }
         }
 
-        $cat = new COM("ADOX.Catalog");
+        $cat = new COM('ADOX.Catalog');
 
         if ($cat) {
 
@@ -1080,7 +1076,7 @@ class DB_ado extends DB_common
             }
             for($i = 0; $i < $count; $i++) {
                 $table = $tables->Item($i);
-                if (strtolower($table->Type) != "view" &&
+                if (strtolower($table->Type) != 'view' &&
                         strtolower($table->Name) == $table_name) {
                     
                     for($x = 0; $x < $table->Columns->Count(); $x++) {
@@ -1130,32 +1126,32 @@ class DB_ado extends DB_common
      */
     function _getStringOfADOType($value)
     {   
-        $ret = "char";
+        $ret = 'char';
 
         if ($this->isTypeOfBinary($value)) {
-            $ret = "binary";
+            $ret = 'binary';
         } elseif ($this->isTypeOfBit($value)) {
-            $ret = "bit";
+            $ret = 'bit';
         } elseif ($this->isTypeOfDecimal($value)) {
-            $ret = "decimal";            
+            $ret = 'decimal';            
         } elseif ($this->isTypeOfNumeric($value)) {
-            $ret = "numeric";            
+            $ret = 'numeric';            
         } elseif ($this->isTypeOfDouble($value)) {
-            $ret = "double";            
+            $ret = 'double';            
         } elseif ($this->isTypeOfFloat($value)) {
-            $ret = "float";            
+            $ret = 'float';            
         } elseif ($this->isTypeOfReal($value)) {
-            $ret = "real";            
+            $ret = 'real';            
         } elseif ($this->isTypeOfCurrency($value)) {
-            $ret = "currency";            
+            $ret = 'currency';            
         } elseif ($this->isTypeOfInteger($value)) {
-            $ret = "int";            
+            $ret = 'int';            
         } elseif ($this->isTypeOfTime($value)) {
-            $ret = "datetime";            
+            $ret = 'datetime';            
         } elseif ($this->isTypeOfTimestamp($value)) {
-            $ret = "timestamp";            
+            $ret = 'timestamp';            
         } elseif ($this->isTypeOfDate($value)) {
-            $ret = "date";            
+            $ret = 'date';            
         }
 
         return $ret;
@@ -1172,8 +1168,8 @@ class DB_ado extends DB_common
     function _getTableNameFromSQL($value)
     {   
         $sql = ltrim($value);
-        $from_part = stristr($sql, "from");            
-        $from_array = split(" ", $from_part);
+        $from_part = stristr($sql, 'from');            
+        $from_array = split(' ', $from_part);
 
         return (string) $from_array[1];
     }
@@ -1181,23 +1177,26 @@ class DB_ado extends DB_common
     /**
      * Transform MS ADODB Enum into php readable string
      * 
-     * @param      object $column (reference) column item
+     * @param      object $column column item
      * @access     privat
      * @return     string empty string or the name type of column
      */
-    function _getFlags4TableInfo(&$column)
+    function _getFlags4TableInfo($column)
     {   
-        $ret = "";
+        $this->pushErrorHandling(PEAR_ERROR_RETURN);
+        $ret = '';
         if ($column->Properties->Count() > 0) {
-            $property = @$column->Properties("Nullable");
-            $ret .= (string) (@$property->Value == false) ? "not_null" : "";
-            $property = @$column->Properties("Autoincrement");
-            $ret .= (string) (@$property->Value == true) ? "auto_increment" : "";
-            $property = @$column->Properties("Primary Key");
-            $ret .= (string) (@$property->Value == true) ? "primary_key" : "";
-            $property = @$column->Properties("Unique");
-            $ret .= (string) (@$property->Value == true) ? "unique" : "";                
+            $property = @$column->Properties('Nullable');
+            $ret .= (string) (@$property->Value == false) ? 'not_null' : '';
+            $property = @$column->Properties('Autoincrement');
+            $ret .= (string) (@$property->Value == true) ? 'auto_increment' : '';
+            $property = @$column->Properties('Primary Key');
+            $ret .= (string) (@$property->Value == true) ? 'primary_key' : '';
+            $property = @$column->Properties('Unique');
+            $ret .= (string) (@$property->Value == true) ? 'unique' : '';                
         }
+        $this->popErrorHandling();
+
         $property = null;
         unset($property);
 
