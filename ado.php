@@ -13,15 +13,11 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Author: Alexios Fakos (alex@fakos.de)                                |
+// | Author: Alexios Fakos (alexios@php.net)                              |
 // +----------------------------------------------------------------------+
 //
 // $Id$
 //
-// Database independent query interface definition for Microsoft's ADODB
-// library using PHP's COM extension
-//
-
 
 //
 // Example:
@@ -39,6 +35,17 @@
 //	$conn = DB::connect($dsn);
 //
 //  ....
+
+
+
+/**
+ * Database independent query interface definition for Microsoft's ADODB
+ * library using PHP's COM extension
+ *
+ * @author   Alexios Fakos <alexios@php.net>
+ * @version  $Revision$
+ * @package  DB_ado
+ */
 
 
 
@@ -280,17 +287,17 @@ class DB_ado extends DB_common
     {   
         if (is_object($this->recordset)) {
             if (@$this->recordset->State != adStateClosed) {
-                @$this->recordset->Close();                
+                @$this->recordset->Close();
             }
-        }        
+        }
         if (is_object($this->connection) && 
                     @$this->connection->State != adStateClosed) {
-            @$this->connection->Close();                
+            @$this->connection->Close();
         }
-        
-        $this->recordset = null;            
-        $this->connection = null;            
-        
+
+        $this->recordset  = null;
+        $this->connection = null;
+
         return true;
     }
 
@@ -318,14 +325,14 @@ class DB_ado extends DB_common
         if (!$this->autocommit && $ismanip) {
             // transaction supported?
             if ($this->adoTrans()) {
-                $this->transaction_opcount++;                    
+                $this->transaction_opcount++;
             }
         }
-        
+
         if ($ismanip) {
-            
-            $this->recordset = @$this->connection->Execute($query, 
-                                                           &$this->affected, 
+
+            $this->recordset = @$this->connection->Execute($query,
+                                                           &$this->affected,
                                                            $this->_execute_option);
 
         } else {
@@ -335,8 +342,8 @@ class DB_ado extends DB_common
                 if (!$this->recordset) {
                     $errMsg  = 'Creating an instance of ADODB.Recordset ';
                     $errMsg .= 'failed!';
-                    return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND, 
-                                               null, null, null, $errMsg);            
+                    return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND,
+                                               null, null, null, $errMsg);
                 }
             } else {
                 //  close other open recordset to open a new one
@@ -347,7 +354,7 @@ class DB_ado extends DB_common
 
             $this->recordset->MaxRecords = $this->_max_records;
             @$this->recordset->Open ($query, $this->connection, $this->_cursor_type, 
-                             $this->_lock_type, $this->_execute_option);            
+                             $this->_lock_type, $this->_execute_option);
         }
 
         if ($this->adoIsError()) {
@@ -369,7 +376,7 @@ class DB_ado extends DB_common
     function nextResult($result)
     {
         if (!@$result->EOF()) {
-            @$result->MoveNext();            
+            @$result->MoveNext();
         }
     }
 
@@ -397,7 +404,7 @@ class DB_ado extends DB_common
             @$result->Move($rownum, 1);
             $this->popErrorHandling();
             if ($this->adoIsError()) {
-                return $this->adoRaiseErrorEx();                
+                return $this->adoRaiseErrorEx();
             } 
         }
 
@@ -408,12 +415,12 @@ class DB_ado extends DB_common
         $arr = array();
 
         $count = $this->numCols($result);
-        
+
         for($i = 0; $i < $count; $i++) {
-            $field = $result->Fields($i);                                    
+            $field = $result->Fields($i);
             $type  = $field->Type;
 
-            $fvalue = $field->Value;   
+            $fvalue = $field->Value;
 
             // avoiding 1970-01-01 01:00:00 on date values if 
             // $fvalue is null or < 0
@@ -421,22 +428,22 @@ class DB_ado extends DB_common
 
             if ($fvalue !== null) {
                 //  adCurrency == 6
-                if ($this->isTypeOfCurrency($type)) {          
+                if ($this->isTypeOfCurrency($type)) {
                     $value = (float) $fvalue;
                 //  adDate == 7 + adDBDate DBTYPE_DBDATE == 133
                 } elseif ($this->isTypeOfDate($type)) {
                     if ($fvalue > 0) {
-                        $value = date('Y-m-d', (integer) $fvalue);  
+                        $value = date('Y-m-d', (integer) $fvalue);
                     }
                 //  adDBTime DBTYPE_DBTIME == 134
                 } elseif ($this->isTypeOfTime($type)) {
                     if ($fvalue > 0) {
-                        $value = date('H:i:s', (integer) $fvalue);      
+                        $value = date('H:i:s', (integer) $fvalue);
                     }
                 //  adDBTimeStamp DBTYPE_DBTIMESTAMP == 135
                 } elseif ($this->isTypeOfTimestamp($type)) {
                     if ($fvalue > 0) {
-                        $value = date('Y-m-d H:i:s', (integer) $fvalue);                          
+                        $value = date('Y-m-d H:i:s', (integer) $fvalue);
                     }
                 } elseif ($this->isTypeOfBinary($type)) {
                     if (is_array($fvalue)) {
@@ -446,7 +453,7 @@ class DB_ado extends DB_common
                         } 
                         $fvalue = null;
                     } else {
-                        $value = $fvalue;                        
+                        $value = $fvalue;
                     }
                 } else {
                     $value = $fvalue;
@@ -459,10 +466,10 @@ class DB_ado extends DB_common
                 $arr[$field->Name] = $value;
             }
         }
-        @$result->MoveNext();                    
-        
+        @$result->MoveNext();
+
         $field = null;
-        unset($field);     
+        unset($field);
 
         return DB_OK;
     }
@@ -477,7 +484,7 @@ class DB_ado extends DB_common
      * @return     integer the number of columns per row in $result
      */
     function numCols($result)
-    {   
+    {
         $cols = -1;
         if (is_object($result)) {
             $cols = @$result->Fields->Count();
@@ -575,7 +582,7 @@ class DB_ado extends DB_common
         if (DB::isError($rs)) {
             return $rs;
         }
-        $rs = $this->query("INSERT INTO ${sqn}_seq (id) VALUES(0)");                    
+        $rs = $this->query("INSERT INTO ${sqn}_seq (id) VALUES(0)");
 
         return $rs;
     }
@@ -585,10 +592,10 @@ class DB_ado extends DB_common
 
     function dropSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);        
+        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
         // close recordset first to avoid table is locked
         if (@$this->recordset->State != 0) {
-            @$this->recordset->Close();            
+            @$this->recordset->Close();
         }
 
         return $this->query("DROP TABLE ${sqn}_seq");
@@ -609,9 +616,9 @@ class DB_ado extends DB_common
             @$result->Close();
         }
 
-        $this->affected->value = 0;
+        $this->affected->value     = 0;
         $this->transaction_opcount = 0;
-        
+
         return true;
     }
 
@@ -644,19 +651,19 @@ class DB_ado extends DB_common
     function adoTrans()
     {
         $ret = $this->connection->Properties('Transaction DDL');
-        
+
         if (!$ret) {
             return false;
         } else {
             $ret = null;
             unset($ret);
             if ($this->transaction_opcount == 0) {
-                @$this->connection->BeginTrans(); 
+                @$this->connection->BeginTrans();
 
                 if ($this->adoIsError()) {
-                    return $this->adoRaiseErrorEx();                
-                }        
-            }            
+                    return $this->adoRaiseErrorEx();
+                }
+            }
         }
 
         return DB_OK;
@@ -678,7 +685,7 @@ class DB_ado extends DB_common
             @$this->connection->CommitTrans(); 
             
             if ($this->adoIsError()) {
-                return $this->adoRaiseErrorEx();                
+                return $this->adoRaiseErrorEx();
             }        
             $this->transaction_opcount = 0;
         }
@@ -702,8 +709,8 @@ class DB_ado extends DB_common
             @$this->connection->RollbackTrans(); 
             
             if ($this->adoIsError()) {
-                return $this->adoRaiseErrorEx();                
-            }            
+                return $this->adoRaiseErrorEx();
+            }
             $this->transaction_opcount = 0;
         }
 
@@ -725,7 +732,7 @@ class DB_ado extends DB_common
             return DB_ERROR_NOT_CAPABLE;
         }
         
-        $count = $errors->Count();        
+        $count = $errors->Count();
         $ret = '';
         for($i = 0; $i < $count; $i++) {
             $item = $errors->Item($i);
@@ -763,12 +770,12 @@ class DB_ado extends DB_common
         if ($errors->Count() == 0) {
             return DB_ERROR_NOT_CAPABLE;
         }
-        
+
         $item = $errors->Item(0);
-        $ret  = (int) $item->Number;             
-        
-		$item = null;
-		unset($item);
+        $ret  = (int) $item->Number;
+
+        $item = null;
+        unset($item);
         $errors = null;
         unset($errors);
 
@@ -806,7 +813,7 @@ class DB_ado extends DB_common
     function adoRaiseErrorEx($errno = null)
     {
         if ($errno === null) {
-            $errno = $this->errorCode($errno);            
+            $errno = $this->errorCode($errno);
         }
         return $this->raiseError($errno, null, null, null,
                                     $this->errorNativeEx());
@@ -853,17 +860,17 @@ class DB_ado extends DB_common
     function setExecuteOption($value = -1)
     {    
         if ($value > 0 && $value < 3) {
-        } elseif ($value == -1) {            
+        } elseif ($value == -1) {
         } elseif ($value == 4) {
         } elseif ($value == 8) {
         } elseif ($value == 256) {
-        } elseif ($value == 512) {       
+        } elseif ($value == 512) {
         } else {
-            return false;            
+            return false;
         }
         $this->_execute_option = $value;
 
-        return true;        
+        return true;
     }
 
 
@@ -895,7 +902,7 @@ class DB_ado extends DB_common
             $this->_cursor_type = $value;
             return true;
         }
-        return false;        
+        return false;
     }
 
     
@@ -914,7 +921,7 @@ class DB_ado extends DB_common
      * @see        $_cursor_location
      */
     function setCursorLocation($value = 3)
-    {   
+    {
         if ($value > 1 && $value < 4) {
             $this->_cursor_location = $value;
             return true;
@@ -993,9 +1000,9 @@ class DB_ado extends DB_common
 
         return $ftype;
     }
-    
-    
-      
+
+
+
     /**
      * Help function to know if table exists
      *
@@ -1032,8 +1039,8 @@ class DB_ado extends DB_common
             unset($table);
             $tables = null; 
             unset($tables);
-            $cat = null; 
-            unset($cat);            
+            $cat = null;
+            unset($cat);
         }
 
         return $ok;
@@ -1080,11 +1087,11 @@ class DB_ado extends DB_common
                         strtolower($table->Name) == $table_name) {
                     
                     for($x = 0; $x < $table->Columns->Count(); $x++) {
-                        $column = $table->Columns->Item($x);                                                
+                        $column = $table->Columns->Item($x);
                         $res[$x]['table']= (string) @$table->Name;
                         $res[$x]['name'] = (string) @$column->Name;
                         $type = $this->_getStringOfADOType($column->Type);
-                        $res[$x]['type'] = (string) $type;  
+                        $res[$x]['type'] = (string) $type;
                         $res[$x]['len']  = (string) @$column->DefinedSize;
                         $flags = $this->_getFlags4TableInfo($column);
                         $res[$x]['flags']= (string) $flags;
@@ -1100,17 +1107,17 @@ class DB_ado extends DB_common
                     }
                     break;
                 } // $table_name
-            }                             
+            }
         } // !$cat
 
         $column = null;
         unset($column);
-        $table = null; 
+        $table = null;
         unset($table);
-        $tables = null; 
+        $tables = null;
         unset($tables);
-        $cat = null; 
-        unset($cat);            
+        $cat = null;
+        unset($cat);
 
         return $res;
     }
@@ -1133,25 +1140,25 @@ class DB_ado extends DB_common
         } elseif ($this->isTypeOfBit($value)) {
             $ret = 'bit';
         } elseif ($this->isTypeOfDecimal($value)) {
-            $ret = 'decimal';            
+            $ret = 'decimal';
         } elseif ($this->isTypeOfNumeric($value)) {
-            $ret = 'numeric';            
+            $ret = 'numeric';
         } elseif ($this->isTypeOfDouble($value)) {
-            $ret = 'double';            
+            $ret = 'double';
         } elseif ($this->isTypeOfFloat($value)) {
-            $ret = 'float';            
+            $ret = 'float';
         } elseif ($this->isTypeOfReal($value)) {
-            $ret = 'real';            
+            $ret = 'real';
         } elseif ($this->isTypeOfCurrency($value)) {
-            $ret = 'currency';            
+            $ret = 'currency';
         } elseif ($this->isTypeOfInteger($value)) {
-            $ret = 'int';            
+            $ret = 'int';
         } elseif ($this->isTypeOfTime($value)) {
-            $ret = 'datetime';            
+            $ret = 'datetime';
         } elseif ($this->isTypeOfTimestamp($value)) {
-            $ret = 'timestamp';            
+            $ret = 'timestamp';
         } elseif ($this->isTypeOfDate($value)) {
-            $ret = 'date';            
+            $ret = 'date';
         }
 
         return $ret;
@@ -1168,7 +1175,7 @@ class DB_ado extends DB_common
     function _getTableNameFromSQL($value)
     {   
         $sql = ltrim($value);
-        $from_part = stristr($sql, 'from');            
+        $from_part = stristr($sql, 'from');
         $from_array = split(' ', $from_part);
 
         return (string) $from_array[1];
@@ -1193,14 +1200,46 @@ class DB_ado extends DB_common
             $property = @$column->Properties('Primary Key');
             $ret .= (string) (@$property->Value == true) ? 'primary_key' : '';
             $property = @$column->Properties('Unique');
-            $ret .= (string) (@$property->Value == true) ? 'unique' : '';                
+            $ret .= (string) (@$property->Value == true) ? 'unique' : '';
         }
         $this->popErrorHandling();
 
         $property = null;
         unset($property);
 
-        return $ret;        
+        return $ret;
+    }
+
+
+
+
+    /**
+     * Returns ADODB version
+     *
+     * @access    (public)
+     * @return    string  ADODB version
+     */
+    function getVersion()
+    {
+        if (is_object($this->connection)) {
+            return (string) $this->connection->Version;
+        }
+        return '';
+    }
+
+
+    /**
+     * Returns ADODB Provider
+     *
+     * @access    (public)
+     * @return    string  ADODB version
+     */
+    function getProvider()
+    {
+        if (is_object($this->connection)) {
+            return (string) $this->connection->Provider;
+        }
+        return '';
     }
 
 
@@ -1248,7 +1287,7 @@ class DB_ado extends DB_common
         if ($value == adChar || $value == adVarChar || 
                 $value == adWChar || $value == adVarWChar ||
                 $value == adLongVarChar || $value == adLongVarWChar) {
-            return true;        
+            return true;
         }
         return false;
     }
@@ -1267,7 +1306,7 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
     /**
      * Checks if field is a decimal type
@@ -1282,7 +1321,7 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
     /**
      * Checks if field is a numeric type
@@ -1297,7 +1336,7 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
     /**
      * Checks if field is a double type
@@ -1312,7 +1351,7 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
     /**
      * Checks if field is a float type
@@ -1327,8 +1366,8 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
-	
+    }
+
     /**
      * Checks if field is a real type
      *
@@ -1342,7 +1381,7 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
     /**
      * Checks if field is a integer type
@@ -1358,7 +1397,7 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
     /**
      * Checks if field is a currency type
@@ -1404,6 +1443,6 @@ class DB_ado extends DB_common
             return true;
         }
         return false;
-    }    
+    }
 
 }  // class DB_ado
