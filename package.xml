@@ -29,7 +29,7 @@
       </dir>
     </filelist>
     <deps>
-      <dep type="php" rel="ge">4.1</dep>
+      <dep type="php" rel="ge" version="4.1" />
       <dep type="os" rel="has">win32</dep>
       <dep type="ext" rel="has">com</dep>
       <dep type="rtlib" rel="has">MS ADODB</dep>
