@@ -26,9 +26,6 @@
       <dir name="/" baseinstalldir="DB">
         <file role="php" name="ado.php" />
         <file role="php" name="ado_constants.php" />
-        <dir name="tests">
-            <file role="php" name="ado_test.php" />
-        </dir>
       </dir>
     </filelist>
     <deps>
