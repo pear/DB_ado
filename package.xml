@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE package SYSTEM "../package.dtd">
+<package version="1.0">
+  <name>DB_ado</name>
+  <summary>DB driver which use MS ADODB library</summary>
+  <description>
+	DB_ado is a database independent query interface definition for Microsoft's ADODB library using PHP's COM extension.
+	This class allows you to connect to different datasource on a *Windows OS* only, like MS Access, MS SQL Server, Oracle and other.
+	Moreover it exists the possibility to use MS Excel spreadsheets and text files as data source. (go to http://support.microsoft.com/search/preview.aspx?scid=kb;en-us;Q257819 for more details)
+  </description>
+  <maintainers>
+    <maintainer>
+      <user>alexios</user>
+      <name>Alexios Fakos</name>
+      <email>alexios@php.net</email>
+      <role>lead</role>
+    </maintainer>
+  </maintainers>
+  <license>LGPL</license>
+  <release>
+    <version>1.1</version>
+    <date>2002-05-27</date>
+    <state>stable</state>
+    <notes>This driver has some problems with binary data, but this depends on COM extension.</notes>
+    <filelist>
+      <dir name="/" baseinstalldir="DB">
+        <file role="php" name="ado.php" />
+        <file role="php" name="ado_constants.php" />
+        <dir name="tests">
+            <file role="php" name="ado_test.php" />
+        </dir>
+      </dir>
+    </filelist>
+    <deps>
+      <dep type="pkg" rel="has">DB</dep>
+    </deps>
+  </release>
+</package>

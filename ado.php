@@ -203,9 +203,11 @@ class DB_ado extends DB_common
             -2147467263  => DB_ERROR_UNSUPPORTED,
             -2147467259  => DB_ERROR_UNSUPPORTED,
             -2147217865  => DB_ERROR_NOSUCHTABLE,
+            -2147217900  => DB_ERROR_NOSUCHFIELD,
+             2147749392  => DB_ERROR_NOSUCHFIELD,
             -2147217857  => DB_ERROR_ALREADY_EXISTS,
             -2147217843  => DB_ERROR_CONNECT_FAILED
-        );
+        );    
     }
 
     
@@ -404,8 +406,13 @@ class DB_ado extends DB_common
     {
 
         if ($rownum !== null && !@$result->EOF()) {
+            $this->pushErrorHandling(PEAR_ERROR_RETURN);
             // adBookmarkFirst, start at the first record
             @$result->Move($rownum, 1);
+            $this->popErrorHandling();
+            if ($this->adoIsError()) {
+                return $this->adoRaiseErrorEx();                
+            } 
         }
 
         if (@$result->EOF()) {
@@ -420,38 +427,7 @@ class DB_ado extends DB_common
             $field = $result->Fields($i);                                    
             $type  = $field->Type;
 
-            // binary data (adBinary = 128, adVarBinary = 204, 
-            // adLongVarBinary = 205)
-            // $type == 128 || $type == 204 || $type == 205)
-            // ask before setting $fvalue due performance reasons
-            if ($this->isTypeOfBinary($type)) {               
-                $fvalue = "";     
-/*  
-                require_once("ado_stream.php");
-                if (!is_object($this->stream)) {
-                    $this->stream =& new ado_stream();                  
-                }
-                if (!$this->stream) {
-                    $fvalue = "InstanceOf ADODB.Stream failed";
-                } else {    
-                    $fvalue = $this->stream->blobToFile($field);
-                    $data = "";
-                    $bin_array = $field->Value;
-                    foreach ($bin_array as $key => $value) {
-                        $data .= ($value > 0) ? chr($value) : "";
-                    }
-                    $filename = "C:\\sss";
-                    $fp = fopen($filename, 'ab');
-                    fwrite($fp, $data);
-                    fclose($fp);
-
-                    unset($bin_array);
-                    $fvalue = $data;
-               }
-*/
-            } else {
-                $fvalue = $field->Value;   
-            }
+            $fvalue = $field->Value;   
 
             // avoiding 1970-01-01 01:00:00 on date values if 
             // $fvalue is null or < 0
@@ -800,7 +776,7 @@ class DB_ado extends DB_common
         $errors = null;
         unset($errors);
 
-        return  $ret;
+        return $ret;
     }
 
 
@@ -833,6 +809,9 @@ class DB_ado extends DB_common
      */
     function adoRaiseErrorEx($errno = null)
     {
+        if ($errno === null) {
+            $errno = $this->errorCode($errno);            
+        }
         return $this->raiseError($errno, null, null, null,
                                     $this->errorNativeEx());
     }
