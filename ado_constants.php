@@ -1,5 +1,4 @@
 <?php
-/* vim: set expandtab tabstop=4 shiftwidth=4: */
 //
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
@@ -18,7 +17,11 @@
 // +----------------------------------------------------------------------+
 //
 //
-// PEAR::DB class using MS ADODB library
+// $Id$
+//
+// Database independent query interface definition for Microsoft's ADODB
+// library using PHP's COM extension
+//
 
 //  CursorTypeEnum Values  //
     define("adOpenForwardOnly", 0);

@@ -1,5 +1,4 @@
 <?php
-/* vim: set expandtab tabstop=4 shiftwidth=4: */
 //
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
@@ -17,14 +16,12 @@
 // | Author: Alexios Fakos (alex@fakos.de)                                |
 // +----------------------------------------------------------------------+
 //
+// $Id$
 //
-// PEAR::DB class using MS ADODB library
+// Database independent query interface definition for Microsoft's ADODB
+// library using PHP's COM extension
 //
 
-// TODO:
-//  - errormapping for some functions like nextId(); Status: 10%
-//  - implement result info; $res->tableInfo(); Status: 99%, only cosmetic stuff todo
-//  - handling of binary data using ADODB.Stream  ???; Status: 0%, won't work of com-extension bug (casting of values)
 
 //
 // Example:
@@ -43,10 +40,12 @@
 //
 //  ....
 
-if (ini_set("autoregister_typelib", 1) === false) {
+
+
+if (ini_set("com.autoregister_typelib", 1) === false) {
     include_once("ado_constants.php");
 }
-@ini_set("autoregister_verbose", 1);
+@ini_set("com.autoregister_verbose", 1);
 
 
 require_once "DB/common.php";
@@ -87,7 +86,8 @@ class DB_ado extends DB_common
     var $autocommit = true;
 
     /**
-     * Flag to see how often a commit was started, Default no commit on every query
+     * Flag to see how often a commit was started, Default no commit 
+     * on every query
      * 
      * @var     boolean default true
      * @see     autoCommit(), simpleQuery(), rollback()
@@ -170,15 +170,18 @@ class DB_ado extends DB_common
      */
     var $_lock_type = -1;
 
-  ////////////////////////////////////////////// //////////////////////////////////////////////
+////////////////////////////////////////////// ///////////////////////////
  
   
   
   
- ////////////////////////////////////////////// //////////////////////////////////////////////
+////////////////////////////////////////////// ///////////////////////////
 
     /**
      * DB_ado constructor.
+     * Visit 
+     * http://support.microsoft.com/default.aspx?scid=kb;EN-US;q168354
+     * for $errorcode_map
      * 
      * @access     public
      * @return     void
@@ -196,7 +199,6 @@ class DB_ado extends DB_common
                                 'limit'         => 'alter'
         );
         $this->errorcode_map = array(
-            // HRESULT FROM OLE http://support.microsoft.com/default.aspx?scid=kb;EN-US;q168354
             -2147483647  => DB_ERROR_UNSUPPORTED,
             -2147467263  => DB_ERROR_UNSUPPORTED,
             -2147467259  => DB_ERROR_UNSUPPORTED,
@@ -225,7 +227,9 @@ class DB_ado extends DB_common
      * Connect to a database and log in as the specified user.
      *
      * @param      $dsn the data source name (see DB::parseDSN for syntax)
-     * @param      $persistent (optional) whether the connection should be persistent (actually not supported persistent COM objects in php)
+     * @param      $persistent (optional) whether the connection should be 
+     *                         persistent (actually not supported persistent 
+     *                         COM objects in php)
      * @access     public
      * @throws     DB_Error 
      * @return     mixed DB_OK on success or DB_Error on failure
@@ -234,8 +238,8 @@ class DB_ado extends DB_common
     function connect($dsninfo, $persistent = false)
     {
         if (!OS_WINDOWS) {
-            return new $this->raiseError(DB_Error_EXTENSION_NOT_FOUND, null, null, null,
-                                        "Microsoft ADODB-Library runs only on windows machines");
+            return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND, null, 
+                        null, null, "This class runs only on Windows OS");
         }
 
         $this->dsn = $dsninfo;
@@ -247,14 +251,18 @@ class DB_ado extends DB_common
         $this->connection = new COM("ADODB.Connection");
 
         if (!$this->connection) {
-                return $this->raiseError(DB_Error_CONNECT_FAILED, null, null, null, 
-                                        "Could not create an instance of ADODB.Connection. Check if you have installed MDAC on your machine.\n
-                                        Get more details at <a href=\"http://www.microsoft.com/data/download.htm\" target=\"_blank\">
-                                        http://www.microsoft.com/data/download.htm</a>");
+           $errMsg  = "Could not create an instance of ADODB.Connection.\n";
+           $errMsg .= "Check if you have installed MDAC on your machine.\n";
+           $errMsg .= "Take a look at "; 
+           $errMsg .= "http://www.microsoft.com/data/download.htm";
+
+           return $this->raiseError(DB_ERROR_CONNECT_FAILED, null, 
+                                    null, null, $errMsg);
         }
 
-        //some valid link properties    
-        $link = "PROVIDER=|DRIVER=|DATA+SOURCE=|PERSIST+SECURITY+INFO=|UID=|USER+ID=|PASSWORD=|PWD=|INITIAL+CATALOG=";
+        //check some valid link properties    
+        $link  = "PROVIDER=|DRIVER=|DATA+SOURCE=|PERSIST+SECURITY+INFO=|UID=|";
+        $link .= "USER+ID=|PASSWORD=|PWD=|INITIAL+CATALOG=";
   
         if (!empty($connstr) && preg_match('/\b\s*('.$link.')\b/i', $connstr)) {
             @$this->connection->Open($connstr, $user, $pw);
@@ -281,11 +289,12 @@ class DB_ado extends DB_common
     function disconnect()
     {   
         if (is_object($this->recordset)) {
-            if (@$this->recordset->State != adStateClosed) { // 0
+            if (@$this->recordset->State != adStateClosed) {
                 @$this->recordset->Close();                
             }
         }        
-        if (is_object($this->connection) && @$this->connection->State != adStateClosed) { // 0
+        if (is_object($this->connection) && 
+                    @$this->connection->State != adStateClosed) {
             @$this->connection->Close();                
         }
         
@@ -298,15 +307,18 @@ class DB_ado extends DB_common
 
 
     /**
-     * Sending a query through ADODB.Connection and recieve ADO.Recordset as result.
-     * For manip queries we use ADODB.Connection execute method instead of ADO.Recordset open method.
+     * Sending a query through ADODB.Connection and recieve ADO.Recordset 
+     * as result.
+     * For manip queries we use ADODB.Connection execute method instead of 
+     * ADO.Recordset open method.
      * 
      * @param      string $query sql statement 
      * @access     public
      * @throws     DB_Error 
      * @return     mixed object ADODB.Recordset or DB_Error on failure
-     * @see        $connection, $recordset, $_max_records, $_cursor_type, $_lock_type, 
-     *             $_execute_option, $transaction_opcount, adoTrans(), commit(), 
+     * @see        $connection, $recordset, $_max_records, $_cursor_type, 
+     *             $_lock_type, $_execute_option, $transaction_opcount, 
+     *             adoTrans(), commit()
      */
     function simpleQuery($query)
     {
@@ -315,14 +327,16 @@ class DB_ado extends DB_common
         $query = $this->modifyQuery($query);
         
         if (!$this->autocommit && $ismanip) {
-                if ($this->adoTrans()) {          // transaction supported?
-                    $this->transaction_opcount++;                    
-                }
+            // transaction supported?
+            if ($this->adoTrans()) {
+                $this->transaction_opcount++;                    
+            }
         }
         
         if ($ismanip) {
             
-            $rs = @$this->connection->Execute($query, &$this->affected, $this->_execute_option);
+            $rs = @$this->connection->Execute($query, &$this->affected, 
+                                                $this->_execute_option);
 
         } else {
 
@@ -331,21 +345,25 @@ class DB_ado extends DB_common
             if (!is_object($rs)) {
                 $rs = new COM("ADODB.Recordset");
                 if (!$rs) {
-                    return $this->raiseError(DB_Error_EXTENSION_NOT_FOUND, null, null, null, 
-                                            "Could not create an instance of ADODB.Recordset");            
+                    $errMsg  = "Creating an instance of ADODB.Recordset";
+                    $errMsg .= "failed!";
+                    return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND, 
+                                               null, null, null, $errMsg);            
                 }
             } else {
-                if ($rs->State != adStateClosed) {  //  close other open recordset to open a new one -- adStateClosed = 0
+                //  close other open recordset to open a new one
+                if ($rs->State != adStateClosed) {  
                     @$rs->Close();  
                 }
             }
 
             $rs->MaxRecords = $this->_max_records;
-            @$rs->Open ($query, $this->connection, $this->_cursor_type, $this->_lock_type, $this->_execute_option);            
+            @$rs->Open ($query, $this->connection, $this->_cursor_type, 
+                             $this->_lock_type, $this->_execute_option);            
         }
 
         if ($this->adoIsError()) {
-            return $this->adoRaiseError(DB_Error_CONNECT_FAILED);
+            return $this->adoRaiseErrorEx($this->errorNative());
         }
         
         return $rs;
@@ -353,7 +371,8 @@ class DB_ado extends DB_common
 
 
     /**
-     * Move the internal ADODB.Recordset result pointer to the next available result.
+     * Move the internal ADODB.Recordset result pointer to the next 
+     * available result.
      *
      * @param      object (reference) ADODB.Recordset 
      * @access     public
@@ -369,22 +388,24 @@ class DB_ado extends DB_common
 
     /**
      * Fetch and return a row of current ADODB.Recordset.
-     * Internally we do some important transformations for right php result.
+     * Internally we do some important transformations for right php 
+     * result.
      * Take a look at ADODB.DataTypeEnum for details.
      *
-     * @param      object $result ADODB.Recordset
-     * @param      array $arr (reference) where data from the row is stored
-     * @param      integer $fetchmode how the array data should be indexed
-     * @param      integer $rownum the row number to fetch
-     * @access     public
-     * @return     mixed DB_OK on success, NULL on no more rows
-     * @todo       BINARY DATA handling
+     * @param     object $result ADODB.Recordset
+     * @param     array $arr (reference) where data from the row is stored
+     * @param     integer $fetchmode how the array data should be indexed
+     * @param     integer $rownum the row number to fetch
+     * @access    public
+     * @return    mixed DB_OK on success, NULL on no more rows
+     * @todo      BINARY DATA handling
      */
     function fetchInto($result, &$arr, $fetchmode, $rownum=null)
     {
 
         if ($rownum !== null && !@$result->EOF()) {
-            @$result->Move($rownum, 1); // adBookmarkFirst, start at the first record
+            // adBookmarkFirst, start at the first record
+            @$result->Move($rownum, 1);
         }
 
         if (@$result->EOF()) {
@@ -399,11 +420,12 @@ class DB_ado extends DB_common
             $field = $result->Fields($i);                                    
             $type  = $field->Type;
 
-            // binary data (adBinary = 128, adVarBinary = 204, adLongVarBinary = 205)
+            // binary data (adBinary = 128, adVarBinary = 204, 
+            // adLongVarBinary = 205)
             // $type == 128 || $type == 204 || $type == 205)
             // ask before setting $fvalue due performance reasons
             if ($this->isTypeOfBinary($type)) {               
-                $fvalue = "BINARY DATA not supported yet";     
+                $fvalue = "";     
 /*  
                 require_once("ado_stream.php");
                 if (!is_object($this->stream)) {
@@ -431,21 +453,26 @@ class DB_ado extends DB_common
                 $fvalue = $field->Value;   
             }
 
-            // avoiding 1970-01-01 01:00:00 on date values if $fvalue is null or < 0
+            // avoiding 1970-01-01 01:00:00 on date values if 
+            // $fvalue is null or < 0
             $value = null;
 
             if ($fvalue !== null) {
-                if ($this->isTypeOfCurrency($type)) {                   //  adCurrency == 6          
-                    $value = (float) $fvalue;                       
-                } elseif ($this->isTypeOfDate($type)) {                 //  adDate == 7
-                    if ($fvalue > 0) {                                  //  adDBDate DBTYPE_DBDATE == 133
+                //  adCurrency == 6
+                if ($this->isTypeOfCurrency($type)) {          
+                    $value = (float) $fvalue;
+                //  adDate == 7 + adDBDate DBTYPE_DBDATE == 133
+                } elseif ($this->isTypeOfDate($type)) {
+                    if ($fvalue > 0) {
                         $value = date('Y-m-d', (integer) $fvalue);  
                     }
-                } elseif ($this->isTypeOfTime(type)) {                  //  adDBTime DBTYPE_DBTIME == 134
+                //  adDBTime DBTYPE_DBTIME == 134
+                } elseif ($this->isTypeOfTime($type)) {
                     if ($fvalue > 0) {
                         $value = date('H:i:s', (integer) $fvalue);      
                     }
-                } elseif ($this->isTypeOfTimestamp($type)) {            //  adDBTimeStamp DBTYPE_DBTIMESTAMP == 135
+                //  adDBTimeStamp DBTYPE_DBTIMESTAMP == 135
+                } elseif ($this->isTypeOfTimestamp($type)) {
                     if ($fvalue > 0) {
                         $value = date('Y-m-d H:i:s', (integer) $fvalue);                          
                     }
@@ -489,8 +516,8 @@ class DB_ado extends DB_common
 
     /**
      * Get the number of rows in a ADODB.Recordset.
-     * Note: If cursor type supports does not support RecordCount, the result is always
-     *       adUnknown = -1.
+     * Note: If cursor type supports does not support RecordCount, 
+     *       the result is always adUnknown = -1.
      *
      * @since      1.0
      * @param      object $result ADODB.Recordset
@@ -523,11 +550,13 @@ class DB_ado extends DB_common
 
 
     /**
-     * Get the next value in a sequence.  Depends on $dbsyntax which type we use
+     * Get the next value in a sequence.  Depends on $dbsyntax which type 
+     * we use
      *
      * @access     public
      * @param      $seq_name the name of the sequence
-     * @param      $ondemand whether to create the sequence table on demand (default is true)
+     * @param      $ondemand whether to create the sequence table on 
+     *                       demand (default is true)
      * @return     mixed a sequence integer or DB_Error
      */
     function nextId($seq_name, $ondemand = true)
@@ -539,9 +568,9 @@ class DB_ado extends DB_common
             $this->pushErrorHandling(PEAR_ERROR_RETURN);
             $rs = $this->query("UPDATE ${sqn}_seq SET id = id + 1");
             $this->popErrorHandling();    
-            
-            // DB_ERROR_NOSUCHTABLE not supported in moment
-            if ($ondemand && DB::isError($rs)) {
+
+            if ($ondemand && DB::isError($rs) && 
+              $this->errorCode($rs->getCode()) == DB_ERROR_NOSUCHTABLE) {
                 $repeat = 1;
                 $rs = $this->createSequence($seq_name);
             } else {
@@ -595,7 +624,8 @@ class DB_ado extends DB_common
 
 
     /**
-     * Free the internal resources associated with $result (basicly it means close recordset)
+     * Free the internal resources associated with $result 
+     * (basicly it means close recordset)
      *
      * @since     1.0
      * @param     object $result ADODB.Recordset
@@ -633,7 +663,8 @@ class DB_ado extends DB_common
     * Normally the startpoint of an transaction will be set here
     *
     * @param      boolean $onoff
-    * @return     mixed TRUE on success, FALSE if transaction is not supported
+    * @return     mixed TRUE on success, FALSE if transaction is not 
+    *                   supported
     * @throws     DB_Error
     * @access     public
     * @see        $autocommit, $transaction_opcount 
@@ -733,7 +764,8 @@ class DB_ado extends DB_common
             $source = $item->Source; 
             $sql    = $item->SQLState; 
             
-            $ret .= "Source: $source - Description: $msg - SQLState: $sql - Number: $nr - Native: $native \n";
+            $ret .= "Source: $source - Description: $msg - SQLState: ";
+            $ret .= "$sql - Number: $nr - Native: $native \n";
         }
 
         $item = null;
@@ -746,7 +778,7 @@ class DB_ado extends DB_common
 
 	
     /**
-     * Get the native error code of the last errors (if any) that
+     * Get the native error code of the last error (if any) that
      * occured on the current ADODB.Connection
      *
      * @since      1.0
@@ -773,7 +805,8 @@ class DB_ado extends DB_common
 
 
     /**
-     * Raise an error and set as param nativecode on raiseError() result-string of errorNative()
+     * Raise an error and set as param nativecode on raiseError() 
+     * result-string of errorNative()
      *
      * @param      integer $errno (optional) default null
      * @since      1.0
@@ -789,7 +822,8 @@ class DB_ado extends DB_common
 
 
     /**
-     * Raise an error and set as param nativecode on raiseError() result-string of errorNative()
+     * Raise an error and set as param nativecode on raiseError() 
+     * result-string of errorNative()
      *
      * @param      integer $errno (optional) default null
      * @since      1.0
@@ -810,14 +844,15 @@ class DB_ado extends DB_common
      * @param      none
      * @since      1.0
      * @access     public
-     * @return     boolean TRUE error(s) occured, FALSE no error occured
+     * @return     boolean TRUE error(s) occured, 
+     *                     FALSE no error occured
      */
     function adoIsError()
     {   
-        if ($this->connection->Errors->Count() > 0 && is_object($this->connection)) {
+        if ($this->connection->Errors->Count() > 0 &&
+                            is_object($this->connection)) {
             return true;
         }
-    
         return false;
     }
   
@@ -836,7 +871,8 @@ class DB_ado extends DB_common
      * @param      integer $value (optional) default -1
      * @since      1.0
      * @access     public
-     * @return     boolean TRUE we set the $value, FALSE wrong Enum was given
+     * @return     boolean TRUE we set the $value, FALSE wrong Enum was 
+     *                     given
      * @see        $_execute_option
      */
     function setExecuteOption($value = -1)
@@ -857,9 +893,12 @@ class DB_ado extends DB_common
 
 
     /**
-     * Set the cursor type for ADODB.Recordset. Only for catching records.
+     * Set the cursor type for ADODB.Recordset. 
+     * Only for catching records.
      *
-     * Notes: Use adOpenKeyset = 1 or adOpenstatic = 3 to get a value > 0 of numRows().
+     * Notes: 
+     * Use adOpenKeyset = 1 or adOpenstatic = 3 to get a 
+     * value > 0 of numRows().
      *
      * CursorTypeEnum
      *      adOpenUnspecified   = -1
@@ -871,7 +910,8 @@ class DB_ado extends DB_common
      * @param      integer $value (optional) default -1
      * @since      1.0
      * @access     public
-     * @return     boolean TRUE we set the $value, FALSE wrong Enum was given
+     * @return     boolean TRUE we set the $value, 
+     *                     FALSE wrong Enum was given
      * @see        numRows(), $_cursor_type
      */
     function setCursorType($value = -1)
@@ -880,7 +920,6 @@ class DB_ado extends DB_common
             $this->_cursor_type = $value;
             return true;
         }
-
         return false;        
     }
 
@@ -895,7 +934,8 @@ class DB_ado extends DB_common
      * @param      integer $value (optional) default 3
      * @since      1.0
      * @access     public
-     * @return     boolean TRUE we set the $value, FALSE wrong Enum was given
+     * @return     boolean TRUE we set the $value, 
+     *                     FALSE wrong Enum was given
      * @see        $_cursor_location
      */
     function setCursorLocation($value = 3)
@@ -904,7 +944,6 @@ class DB_ado extends DB_common
             $this->_cursor_location = $value;
             return true;
         }
-
         return false;
     }
 
@@ -922,7 +961,8 @@ class DB_ado extends DB_common
      * @param      integer $value (optional) default -1
      * @since      1.0
      * @access     public
-     * @return     boolean TRUE we set the $value, FALSE wrong Enum was given
+     * @return     boolean TRUE we set the $value, 
+     *                     FALSE wrong Enum was given
      * @see        $_lock_type
      */
     function setLockType($value = -1)
@@ -931,21 +971,22 @@ class DB_ado extends DB_common
             $this->_lock_type = $value;
             return true;
         }
-
         return false;
     }
 
 
-    /**
-     * Setting of MaxRecords to get only xx records on every query
-     *
-     * Note: msdn-article "PRB: MaxRecords Property Is Not Used in Access Queries with ADO (Q186267)"
-     *
-     * @param      integer $value (optional) default 0
-     * @since      1.0
-     * @access     public
-     * @return     boolean TRUE we set the $value, FALSE no integer value was given
-     * @see        $_max_records
+   /**
+    * Setting of MaxRecords to get only xx records on every query
+    *
+    * Note: msdn-article (Q186267)
+    * "PRB: MaxRecords Property Is Not Used in Access Queries with ADO"
+    *
+    * @param      integer $value (optional) default 0
+    * @since      1.0
+    * @access     public
+    * @return     boolean TRUE we set the $value, 
+    *                     FALSE no integer value was given
+    * @see        $_max_records
     */
     function setMaxRecords($value = 0)
     {
@@ -953,7 +994,6 @@ class DB_ado extends DB_common
             $this->_max_records = $value;
             return true;
         }
-
         return false;
     }
 
@@ -970,7 +1010,7 @@ class DB_ado extends DB_common
         $dbsyntax = $this->dbsyntax;
 
         if ($dbsyntax == "access") {
-            $ftype =  "(id LONG NOT NULL, PRIMARY KEY(id))";
+            $ftype = "(id LONG NOT NULL, PRIMARY KEY(id))";
         } else {
             // odbc compliant
             $ftype = "(id BIGINT NOT NULL, PRIMARY KEY(id))";
@@ -995,10 +1035,10 @@ class DB_ado extends DB_common
 
         if ($cat) {
 
-//          @$cat->ActiveConnection = $this->connection;
-         // can use it in this way, i get always a seq fault of php.exe, maybe a bug
-         // reported bug-id #16720
-         // so we use an alternative way ...
+        // @$cat->ActiveConnection = $this->connection;
+        // can use it in this way, i get always a seq fault of php.exe, 
+        // maybe a bug reported bug-id #16720
+        // so we use an alternative way ...
 
             @$cat->ActiveConnection = $this->connection->ConnectionString;
 
@@ -1028,8 +1068,6 @@ class DB_ado extends DB_common
    // }}}
    // {{{ tableInfo()
 
-   // TODO: transforming ret int-value to "human value":) (line 1071)
-
     function tableInfo($result, $mode = null) {
         $count = 0;
         $id    = 0;
@@ -1040,10 +1078,12 @@ class DB_ado extends DB_common
         if (is_string($result)) {
             $table_name = $result;
         } else { // is_object
-            $table_name = strtolower($this->_getTableNameFromSQL($this->last_query));
+            $sql = $this->last_query;
+            $table_name = strtolower($this->_getTableNameFromSQL($sql));
             // or @$result->Source
             if (empty($table_name)) {
-                return $this->adoRaiseError();
+                return $this->raiseError(DB_ERROR_INVALID, null, null,
+                        null, "Empty table name in tableInfo() __LINE__");
             }
         }
 
@@ -1066,11 +1106,13 @@ class DB_ado extends DB_common
                     
                     for($x = 0; $x < $table->Columns->Count(); $x++) {
                         $column = $table->Columns->Item($x);                                                
-                        $res[$x]['table'] = $table->Name;
-                        $res[$x]['name']  = (string) @$column->Name;
-                        $res[$x]['type']  = (string) @$column->Type;  // todo: transforming ret int-value to string
-                        $res[$x]['len']   = (string) @$column->DefinedSize;
-                        $res[$x]['flags'] = $this->_getFlags4TableInfo($column);
+                        $res[$x]['table']= (string) @$table->Name;
+                        $res[$x]['name'] = (string) @$column->Name;
+                        $type = $this->_getStringOfADOType($column->Type);
+                        $res[$x]['type'] = (string) $type;  
+                        $res[$x]['len']  = (string) @$column->DefinedSize;
+                        $flags = $this->_getFlags4TableInfo($column);
+                        $res[$x]['flags']= (string) $flags;
 
                         if (!empty($mode)) {
                             if ($mode & DB_TABLEINFO_ORDER) {
@@ -1098,19 +1140,72 @@ class DB_ado extends DB_common
         return $res;
     }
 
-
-    function _getTableNameFromSQL($value)
+// todo: transforming ret int-value to string
+    /**
+     * Get MS ADODB integer value of field type
+     * as human string 
+     *
+     * @param      string $value integer value of ADODB field type
+     * @access     privat
+     * @return     string human string
+     */
+    function _getStringOfADOType($value)
     {   
-        $sql = ltrim($value);
-        $from_part = stristr($sql, "from");    
-        
-        $from_array = split(" ", $from_part);
+        $ret = "char";
 
-        return (string) $from_array[1];
+        if ($this->isTypeOfBinary($value)) {
+            $ret = "binary";
+        } elseif ($this->isTypeOfBit($value)) {
+            $ret = "bit";
+        } elseif ($this->isTypeOfDecimal($value)) {
+            $ret = "decimal";            
+        } elseif ($this->isTypeOfNumeric($value)) {
+            $ret = "numeric";            
+        } elseif ($this->isTypeOfDouble($value)) {
+            $ret = "double";            
+        } elseif ($this->isTypeOfFloat($value)) {
+            $ret = "float";            
+        } elseif ($this->isTypeOfReal($value)) {
+            $ret = "real";            
+        } elseif ($this->isTypeOfCurrency($value)) {
+            $ret = "currency";            
+        } elseif ($this->isTypeOfInteger($value)) {
+            $ret = "int";            
+        } elseif ($this->isTypeOfTime($value)) {
+            $ret = "datetime";            
+        } elseif ($this->isTypeOfTimestamp($value)) {
+            $ret = "timestamp";            
+        } elseif ($this->isTypeOfDate($value)) {
+            $ret = "date";            
+        }
 
+        return $ret;
     }
 
 
+    /**
+     * Receiving of the table name in a SQL query string
+     *
+     * @param      string $value SQL query string
+     * @access     privat
+     * @return     string table name in the SQL query
+     */
+    function _getTableNameFromSQL($value)
+    {   
+        $sql = ltrim($value);
+        $from_part = stristr($sql, "from");            
+        $from_array = split(" ", $from_part);
+
+        return (string) $from_array[1];
+    }
+
+    /**
+     * Transform MS ADODB Enum into php readable string
+     * 
+     * @param      object $column (reference) column item
+     * @access     privat
+     * @return     string empty string or the name type of column
+     */
     function _getFlags4TableInfo(&$column)
     {   
         $ret = "";
@@ -1128,16 +1223,8 @@ class DB_ado extends DB_common
         unset($property);
 
         return $ret;        
-
     }
 
-
-
-/***************************************************************************************
- *
- *      i like readable code without knowing about the syntax of a language
- *
- ***************************************************************************************/
 
     /**
      * Checks if field is a binary type
